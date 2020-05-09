@@ -45,3 +45,8 @@ recover_file(
 	output_file="file" # File, where will be data written
 ):
 ```
+
+## Requirements
+
+* python 3.7.6
+* `dumpe2fs`, part of the **e2fsprogs** package and is available from http://e2fsprogs.sourceforge.net.
