@@ -29,9 +29,41 @@ It reads plain filesystem image and gets all used inodes. Then it attempts to ga
 ### Recovering file
 In snapshot it finds corresponding *inode id* and then saved data fragments with file size. It reads all fragments from original filesystem to new file.
 
-## Example
-Example can be found in Jupyter Notebook file `example.ipynb`.
+## Install
+You can install this module and use it as command line tool.
+```
+python setup.py install
+```
 
+And then use it like this:
+```
+$ ext4-backup-pointers
+usage: ext4-backup-pointers [-h] {create,recover} ...
+
+EXT4 backup inode data pointers & recover selected files
+
+positional arguments:
+  {create,recover}
+    create          create metadata snapshot
+    recover         recover file from metadata snapshot
+
+optional arguments:
+  -h, --help        show this help message and exit
+```
+
+## Example
+Create snapshot. It creates snapshot of filesystem image `data_fs.img` and saves to `data_fs.img.snapshot.out` (if not otherwise specified, using `-o`).
+
+```
+ext4-backup-pointers create -i data_fs.img
+```
+
+Recover file from filesystem image and snapshot. Absolute path to recovered file inside given filesystem is `/my_file.jpg`. It stores recovered file to current directory with same base name as recovered file.
+```
+ext4-backup-pointers recover -i data_fs.img -s data_fs.img.snapshot.out /my_file.jpg
+```
+
+Example of code usage can be found in Jupyter Notebook file `example.ipynb`.
 ```
 from src.utils import generate_snapshot, recover_file
 generate_snapshot(
