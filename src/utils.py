@@ -580,11 +580,24 @@ def readdir_from_chunks(fs, sb, chunks, size=None):
     return entries
 
 #
-# METADATA
+# SNAPSHOT
 #
 
-# generate metadata from fs
-def generate_metadata(fs, dirs_max_depth=100):
+import json
+def save_snapshot(file_path, snapshot):
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(json.dumps(snapshot))
+
+def load_snapshot(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        snapshot = json.load(file)
+
+    # JSON stores keys only as strings
+    snapshot['inodes'] = {int(k):v for k,v in snapshot['inodes'].items()}
+    return snapshot
+
+# generate snapshot from fs
+def generate_snapshot(fs, snapshot_file, dirs_max_depth=100):
     sb = get_super(fs)
     inodes = get_inodes_addresses(fs, sb)
 
@@ -643,17 +656,19 @@ def generate_metadata(fs, dirs_max_depth=100):
                         'inode': entry['inode']
                     })
 
-    return {
+    save_snapshot(snapshot_file, {
         'dirs': entries,
         'inodes': files_chunks
-    }
+    })
 
 # recover file from fs using supplied metdata
-def recover_file(fs, metadata, file_path, output_file):
-    if file_path not in metadata['dirs']:
+def recover_file(fs, snapshot_file, file_path, output_file):
+    snapshot = load_snapshot(snapshot_file)
+
+    if file_path not in snapshot['dirs']:
         raise Exception('File was not found.')
     
-    inode_id = metadata['dirs'][file_path]
-    assert inode_id in metadata['inodes']
-    size, chunks = metadata['inodes'][inode_id]
+    inode_id = snapshot['dirs'][file_path]
+    assert inode_id in snapshot['inodes']
+    size, chunks = snapshot['inodes'][inode_id]
     get_file_from_chunks(fs, chunks, output_file, size)

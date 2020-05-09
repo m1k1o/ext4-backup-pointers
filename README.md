@@ -33,17 +33,18 @@ In snapshot it finds corresponding *inode id* and then saved data fragments with
 Example can be found in Jupyter Notebook file `example.ipynb`.
 
 ```
-from src.utils import generate_metadata, recover_file
-metadata = generate_metadata(
-	fs='data_fs.img',  # Filesystem image file
-	dirs_max_depth=100 # Max directory traversal depth
+from src.utils import generate_snapshot, recover_file
+generate_snapshot(
+	fs="data_fs.img",             # Filesystem image file
+	snapshot_file="snapshot.out", # Path, where will be snapshot metadata file created
+	dirs_max_depth=100            # Max directory traversal depth
 )
 recover_file(
-	fs='data_fs.img',  # Filesystem image file
-	metadata=metadata, # Snapshot metadata from previous function
-	file_path="/file", # File to be recovered, absolute path
-	output_file="file" # File, where will be data written
-):
+	fs="data_fs.img",             # Filesystem image file
+	snapshot_file="snapshot.out", # Snapshot metadata file path generated from previous function
+	file_path="/my_file.jpg",     # File to be recovered, absolute path
+	output_file="my_file.jpg"     # File, where will be recovered data written
+)
 ```
 
 ## Requirements
