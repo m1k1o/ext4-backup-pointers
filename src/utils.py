@@ -608,6 +608,28 @@ def get_used_blocks(fs, sb):
 
     return join_ranges(used_blocks)
 
+# check if it has chunks, that are still used whithin fs
+def has_conflicting_chunks(fs, sb, used_blocks, chunks):
+    for chunk in chunks:
+        # get blocks from physical address
+        file_l = chunk["addr"] // sb["Block size"]
+        file_r = file_l + (chunk["len"] // sb["Block size"])
+
+        for used_block in used_blocks:
+            used_l = used_block['first']
+            used_r = used_l + used_block['total']
+
+            # check whether is range on the left or on the right
+            # left is inclusive and right is exclusive, so therefore <= and >= where they meet
+            is_left = file_l < used_l and file_r <= used_l
+            is_right = file_l >= used_r and file_r > used_r
+
+            # check whether overlapping
+            if not (is_left or is_right):
+                return True
+
+    return False
+
 # get chunks, that are still used whithin fs
 def get_conflicting_chunks(fs, sb, used_blocks, chunks):
     conflicting = []
@@ -767,9 +789,8 @@ def recover_file(fs, snapshot_file, file_path, output_file, verify_checksum=True
         # get used blocks from bbitmap
         used_blocks = get_used_blocks(fs, sb)
 
-        # get conflicting chunks
-        conflicting = has_conflicting_chunks(fs, sb, used_blocks, chunks)
-        if len(conflicting) > 0:
+        # check whethter file has conflicting chunks
+        if has_conflicting_chunks(fs, sb, used_blocks, chunks):
             raise Exception('File cannot be fully recovered. Some of its blocks are alreay in use.')
 
     get_file_from_chunks(fs, chunks, output_file, size)
