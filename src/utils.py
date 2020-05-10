@@ -609,10 +609,7 @@ def get_used_blocks(fs, sb):
     return join_ranges(used_blocks)
 
 # get chunks, that are still used whithin fs
-def get_conflicting_chunks(fs, sb, chunks):
-    # get used blocks from bbitmap
-    used_blocks = get_used_blocks(fs, sb)
-
+def get_conflicting_chunks(fs, sb, used_blocks, chunks):
     conflicting = []
     for chunk in chunks:
         # get blocks from physical address
@@ -767,7 +764,11 @@ def recover_file(fs, snapshot_file, file_path, output_file, verify_checksum=True
         if not is_inode_deleted(fs, sb, inode_id):
             raise Exception('File is not deleted.')
 
-        conflicting = get_conflicting_chunks(fs, sb, chunks)
+        # get used blocks from bbitmap
+        used_blocks = get_used_blocks(fs, sb)
+
+        # get conflicting chunks
+        conflicting = has_conflicting_chunks(fs, sb, used_blocks, chunks)
         if len(conflicting) > 0:
             raise Exception('File cannot be fully recovered. Some of its blocks are alreay in use.')
 
