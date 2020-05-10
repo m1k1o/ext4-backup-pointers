@@ -687,6 +687,31 @@ def is_inode_deleted(fs, sb, inode_id):
     bitmap = read_blocks(fs, sb['Block size'], block_group['ibitmap'])
     return access_bit(bitmap, bitmap_index) == 0
 
+# check if given inodes have been deleted; return list of inodes, that have been deleted
+def check_if_deleted_inodes(fs, sb, inode_ids):
+    bgs = get_block_groups(fs)
+
+    available_inode_ids = list(inode_ids)
+    for bg in bgs:
+        # only initialized inodes
+        if 'INODE_UNINIT' in sb['Blocks flags'][bg['group']]:
+            continue
+
+        # get & parse bitmap
+        bitmap = read_blocks(fs, sb['Block size'], bg['ibitmap'])
+        indexes = parse_bitmap(bitmap, sb['Inodes per group'])
+
+        # get inode ids
+        for index in indexes:
+            inode_id = index + (sb['Inodes per group'] * bg['group']) + 1
+            if inode_id in available_inode_ids:
+                available_inode_ids.remove(inode_id)
+
+        if len(available_inode_ids) == 0:
+            break
+
+    return available_inode_ids
+
 #
 # SNAPSHOT
 #
@@ -794,3 +819,34 @@ def recover_file(fs, snapshot_file, file_path, output_file, verify_checksum=True
             raise Exception('File cannot be fully recovered. Some of its blocks are alreay in use.')
 
     get_file_from_chunks(fs, chunks, output_file, size)
+
+# list all deleted files from filesystem, that are present in snapshot
+def list_deleted(fs, snapshot_file):
+    snapshot = load_snapshot(snapshot_file)
+    sb = get_super(fs)
+
+    # get all inodes of directories
+    inode_ids = snapshot['dirs'].values()
+
+    # get only those inodes, that have been deleted
+    deleted_inodes = check_if_deleted_inodes(fs, sb, inode_ids)
+
+    # get all blocks, that are used by fs
+    used_blocks = get_used_blocks(fs, sb)
+
+    deleted_files = {}
+    for path, inode_id in snapshot['dirs'].items():
+        if inode_id not in deleted_inodes:
+            continue
+
+        assert inode_id in snapshot['inodes']
+        size, chunks = snapshot['inodes'][inode_id]
+
+        # get conflicting chunks
+        deleted_files[path] = {
+            'inode_id': inode_id,
+            'size': size,
+            'can_be_recovered': not has_conflicting_chunks(fs, sb, used_blocks, chunks),
+        }
+
+    return deleted_files

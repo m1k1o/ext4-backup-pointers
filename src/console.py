@@ -1,7 +1,8 @@
 import argparse
+import textwrap
 import os
 
-from src.utils import generate_snapshot, recover_file
+from src.utils import generate_snapshot, recover_file, list_deleted
 
 def create(args):
     # Default output
@@ -31,9 +32,24 @@ def recover(args):
         verify_checksum=not args.force
     )
 
+def ls(args):
+    deleted_files = list_deleted(
+        fs=args.input,
+        snapshot_file=args.snapshot
+    )
+
+    print("total {}".format(len(deleted_files)))
+    for path, v in deleted_files.items():
+        print("{:5}{:<13}{}".format(
+            'OK' if v['can_be_recovered'] else 'ERR',
+            v['size'],
+            path
+        ))
+
 """
 ext4-backup-pointers create -i data_fs.img [-o snapshot-2020-05-09.json]
 ext4-backup-pointers recover -i data_fs.img -s snapshot-2020-05-09.json /some/file.jpg [-o file.jpg]
+ext4-backup-pointers ls -i data_fs.img -s snapshot-2020-05-09.json
 """
 def start():
     # create the top-level parser
@@ -59,6 +75,21 @@ def start():
     parser_recover.add_argument('-o', '--output', type=str, help='output file, where will be recovered file saved', required=False)
     parser_recover.add_argument('-f', '--force', action='store_true', help='recover even if data blocks of file have been already allocated and file might be corrupted', required=False)
     parser_recover.set_defaults(func=recover)
+
+    parser_ls = subparsers.add_parser('ls',
+        help='list all deleted files, that are present in snapshot',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent('''\
+            columns:
+              1. OK  - file can be recovered.
+                 ERR - data blocks of file have already been allocated.
+              2. Filesize in bytes.
+              3. Absolute file path.
+        ''')
+    )
+    parser_ls.add_argument('-i', '--input', type=str, help='image of file system', required=True)
+    parser_ls.add_argument('-s', '--snapshot', type=str, help='metadata snapshot generated using "create"', required=True)
+    parser_ls.set_defaults(func=ls)
 
     # parse argument lists
     args = parser.parse_args()

@@ -38,31 +38,44 @@ python setup.py install
 And then use it like this:
 ```
 $ ext4-backup-pointers
-usage: ext4-backup-pointers [-h] {create,recover} ...
+usage: ext4-backup-pointers [-h] {create,recover,ls} ...
 
 EXT4 backup inode data pointers & recover selected files
 
 positional arguments:
-  {create,recover}
-    create          create metadata snapshot
-    recover         recover file from metadata snapshot
+  {create,recover,ls}
+    create             create metadata snapshot
+    recover            recover file from metadata snapshot
+    ls                 list all deleted files, that are present in snapshot
 
 optional arguments:
-  -h, --help        show this help message and exit
+  -h, --help           show this help message and exit
 ```
 
 ## Example
-Create snapshot. It creates snapshot of filesystem image `data_fs.img` and saves to `data_fs.img.snapshot.out` (if not otherwise specified, using `-o`).
+**Create snapshot.** It creates snapshot of filesystem image `data_fs.img` and saves to `data_fs.img.snapshot.out` (if not otherwise specified, using `-o`).
 
 ```
-ext4-backup-pointers create -i data_fs.img
+$ ext4-backup-pointers create -i data_fs.img
 ```
 
-Recover file from filesystem image and snapshot. Absolute path to recovered file inside given filesystem is `/my_file.jpg`. It stores recovered file to current directory with same base name as recovered file.
+**Recover file** from filesystem image and snapshot. Absolute path to recovered file inside given filesystem is `/my_file.jpg`. It stores recovered file to current directory with same base name as recovered file.
 ```
-ext4-backup-pointers recover -i data_fs.img -s data_fs.img.snapshot.out /my_file.jpg
+$ ext4-backup-pointers recover -i data_fs.img -s data_fs.img.snapshot.out /my_file.jpg
 ```
 
+**List files**, that have been deleted in given filesystem but are present in snapshot. Each entry consists of:
+  1. *OK* - file can be recovered.
+     *ERR* - data blocks of file have already been allocated.
+  2. Filesize in bytes.
+  3. Absolute file path
+```
+$ ext4-backup-pointers ls -i data_fs.img -s data_fs.img.snapshot.out
+total 1
+OK   1558173      /my_file.jpg
+```
+
+### Source code
 Example of code usage can be found in Jupyter Notebook file `example.ipynb`.
 ```
 from src.utils import generate_snapshot, recover_file
@@ -77,6 +90,10 @@ recover_file(
 	file_path="/my_file.jpg",     # File to be recovered, absolute path
 	output_file="my_file.jpg",    # File, where will be recovered data written
 	verify_checksum=True          # Check, whether all file blocks have not been allocated by fs
+)
+list_deleted(
+	fs="data_fs.img",             # Filesystem image file
+	snapshot_file="snapshot.out"  # Snapshot metadata file path
 )
 ```
 
