@@ -11,18 +11,18 @@ def split_range(numstr):
 def join_ranges(arr):
     last_from = None
     last_to = None
-    
+
     data = []
     for entry in arr:
         if last_to is None:
             last_from = entry
             last_to = entry
             continue
-        
+
         if entry == last_to + 1:
             last_to = entry
             continue
-        
+
         # commit
         data.append({
             'first': last_from,
@@ -30,10 +30,10 @@ def join_ranges(arr):
         })
         last_from = entry
         last_to = entry
-    
+
     if last_from is None or last_to is None:
         return []
-    
+
     data.append({
         'first': last_from,
         'total': last_to-last_from+1
@@ -56,21 +56,21 @@ def get_super(fs):
     sb, blocks = data.split('\n\n')
 
     data = {}
-    
+
     rows = sb.strip().split('\n')
     for row in rows:
         # prop:  value
         prop, val = re.compile(":\s+").split(row)
-        
+
         # parse integers
         if re.match("^-?\d+$", val):
             data[prop] = int(val)
         else:
             data[prop] = val
-    
+
     # split
     data['Filesystem features'] = data['Filesystem features'].split(' ')
-    
+
     data['Blocks flags'] = []
     rows = blocks.strip().split('\n')
     for row in rows:
@@ -78,10 +78,10 @@ def get_super(fs):
         match = re.match("^Group.*\[(.*?)\]$", row)
         if not match:
             continue
-        
+
         flags = match.group(1).split(", ")
         data['Blocks flags'].append(flags)
-    
+
     return data
 
 # get infos about block groups
@@ -101,9 +101,9 @@ def get_block_groups(fs):
 
     # remove header
     rows.pop(0)
-    
+
     # group:block:super:gdt:bbitmap:ibitmap:itable
-    
+
     data = []
     for row in rows:
         col = row.split(':')
@@ -141,7 +141,7 @@ def parse_bitmap(data, total_items=None):
 
         if access_bit(data, i):
             indexes.append(i)
-    
+
     return indexes
 
 # [ 'inode_id': 'physical_addr', ... ]
@@ -169,7 +169,7 @@ def get_inodes_addresses(fs, sb=None):
             raw_address = (index * sb['Inode size']) + base_address
 
             inodes[inode_id] = raw_address
-    
+
     return inodes
 
 #
@@ -218,14 +218,14 @@ def get_flags(i_flags):
 def join_int32(hi, lo):
     # join hi + lo
     num = (hi << 32) +  lo
-    
+
     # test
     src_bits = "{0:032b}".format(hi) + "{0:032b}".format(lo)
     dst_bits = "{0:064b}".format(num)
     assert src_bits == dst_bits
-    
+
     return num
-    
+
 # get relevant data from inode
 def inode_parse(data):
     # 0x00   __le16   i_mode
@@ -240,7 +240,7 @@ def inode_parse(data):
     i_block = data[40:100]
     # 0x6C   __le32   i_size_high
     i_size_high = struct.unpack('<I', data[108:112])[0]
-    
+
     return {
         'filetype': get_filetype(i_mode),
         'flags': get_flags(i_flags),
@@ -254,7 +254,7 @@ def inode_parse(data):
 #
 def ext4_extent_header(data):
     assert len(data) >= 12
-    
+
     res = {}
     # 0x00   __le16   eh_magic
     eh_magic = struct.unpack('<H', data[0:2])[0]
@@ -266,14 +266,14 @@ def ext4_extent_header(data):
     res['eh_depth'] = struct.unpack('<H', data[6:8])[0]
     # 0x08   __le32   eh_generation
     #res['eh_generation'] = struct.unpack('<I', data[8:12])[0] # not standard ext4
-    
+
     # expect magic to be set
     assert eh_magic == 0xF30A
     return res
 
 def ext4_extent_idx(data):
     assert len(data) >= 12
-    
+
     res = {}
     # 0x00   __le32   ei_block
     res['ei_block'] = struct.unpack('<I', data[0:4])[0]
@@ -284,15 +284,15 @@ def ext4_extent_idx(data):
     # 0x0A   __u16   ei_unused
     ei_unused = struct.unpack('<H', data[10:12])[0]
     #assert ei_unused == 0
-    
+
     # join hi + lo
     res['ei_leaf'] = join_int32(ei_leaf_hi, ei_leaf_lo)
-    
+
     return res
 
 def ext4_extent(data):
     assert len(data) >= 12
-    
+
     res = {}
     # 0x00   __le32   ee_block
     res['ee_block'] = struct.unpack('<I', data[0:4])[0]
@@ -302,10 +302,10 @@ def ext4_extent(data):
     ee_start_hi = struct.unpack('<H', data[6:8])[0]
     # 0x08   __le32   ee_start_lo
     ee_start_lo = struct.unpack('<I', data[8:12])[0]
-    
+
     # join hi + lo
     res['ee_start'] = join_int32(ee_start_hi, ee_start_lo)
-    
+
     return res
 
 # traverse one block of extent tree and get entries
@@ -325,7 +325,7 @@ def parse_extent_data(block):
 
         # increase offset by extent idx size
         offset += 12
-    
+
     return hdr['eh_depth'], entries
 
 # traverse whole extent tree and get all leaves
@@ -377,16 +377,16 @@ def unpack_pointers(fs, data):
     for i in range(len(data) // 4):
         offset = i * 4
         pointer = struct.unpack('<I', data[offset:offset+4])[0]
-        
+
         if pointer != 0:
             pointers.append(pointer)
-    
+
     return pointers
 
 # get data chunks from indirect addressing scheme
 def parse_indirect_blocks_chunks(fs, sb, inode_data):
     assert len(inode_data) == 60
-    
+
     # pointers 0 - 11: direct to data
     data_blocks = unpack_pointers(fs, inode_data[0:11*4])
 
@@ -439,12 +439,12 @@ def parse_indirect_blocks_chunks(fs, sb, inode_data):
 def inode_to_chunks(fs, sb, inode):
     # TODO: Support inlnie data
     assert 'EXT4_INLINE_DATA_FL' not in inode['flags']
-    
+
     if 'EXT4_EXTENTS_FL' in inode['flags']:
         chunks = parse_extent_tree_chunks(fs, sb, inode['data'])
     else:
         chunks = parse_indirect_blocks_chunks(fs, sb, inode['data'])
-    
+
     size = inode['size']
     return size, chunks
 
@@ -452,13 +452,13 @@ def inode_to_chunks(fs, sb, inode):
 def get_file_from_chunks(src_fs, chunks, dst_fs, size=None):
     dst_fh = open(dst_fs, 'wb')
     src_fh = open(src_fs, 'r+b')
-    
+
     chunks_size = 0
     for chunk in chunks:
         chunks_size += chunk['len']
-        
+
         src_fh.seek(chunk['addr'])
-        
+
         # if size is set, remove oveflowing zeros
         if size is not None and size < chunks_size:
             data = src_fh.read(chunk['len'])
@@ -474,14 +474,14 @@ def get_file_from_chunks(src_fs, chunks, dst_fs, size=None):
 def get_from_chunks(src_fs, chunks, size=None):
     dst = b''
     src_fh = open(src_fs, 'r+b')
-    
+
     chunks_size = 0
     for chunk in chunks:
         chunks_size += chunk['len']
-        
+
         src_fh.seek(chunk['addr'])
         data = src_fh.read(chunk['len'])
-        
+
         # if size is set, remove oveflowing zeros
         if size is not None and size < chunks_size:
             dst += data[0:chunk['len'] - diff]
@@ -489,7 +489,7 @@ def get_from_chunks(src_fs, chunks, size=None):
             dst += data
 
     src_fh.close()
-    
+
     return data
 
 #
@@ -503,13 +503,13 @@ def readdir_block(sb, data):
     entries = []
     while True:
         assert offset <= length
-        
+
         res = {}
         # 0x00   __le32   inode
         inode = struct.unpack('<I', data[offset:offset+4])[0]
         # 0x04   __le16   rec_len
         rec_len = struct.unpack('<H', data[offset+4:offset+6])[0]
-        
+
         if 'filetype' in sb['Filesystem features']:
             # 0x06   __u8     name_len
             name_len = struct.unpack('<B', data[offset+6:offset+7])[0]
@@ -519,11 +519,11 @@ def readdir_block(sb, data):
              # 0x06   __le16  name_len
             name_len = struct.unpack('<H', data[offset+4:offset+8])[0]
             file_type = 0x0
-        
+
         # 0x08   char     name[EXT4_NAME_LEN]
         assert name_len <= 0xFF
         name = data[offset+8:offset+8+name_len].decode("utf-8")
-        
+
         # Parse file_type
         if file_type == 0x0: # S_IFSOCK (Socket)
             file_type = None
@@ -541,7 +541,7 @@ def readdir_block(sb, data):
             file_type = 'S_IFLNK'
         elif file_type == 0x6: # S_IFSOCK (Socket)
             file_type = 'S_IFSOCK'
-            
+
         # inode with id 0 is removed entry
         if inode != 0:
             entries.append({
@@ -549,33 +549,33 @@ def readdir_block(sb, data):
                 'filetype': file_type,
                 'name': name
             })
-        
+
         offset += rec_len
-        
+
         # if entry lasts to te end of the block, list ended
         if offset == length:
             break
-    
+
     return entries
 
 # chunk [{'addr': 8706, 'len': 1}]
 def readdir_from_chunks(fs, sb, chunks, size=None):
     fh = open(fs, 'r+b')
-    
+
     chunks_size = 0
     entries = []
     for chunk in chunks:
         chunks_size += chunk['len']
-        
+
         fh.seek(chunk['addr'])
         block = fh.read(chunk['len'])
-        
+
         # if size is set, remove oveflowing zeros
         if size is not None and size < chunks_size:
             block = data[0:chunk['len'] - diff]
-        
+
         entries += readdir_block(sb, block)
-    
+
     fh.close()
     return entries
 
