@@ -43,9 +43,9 @@ def join_ranges(arr):
 # read superblock
 def get_super(fs):
     process = subprocess.Popen(
-    	['dumpe2fs', fs],
-    	stdout=subprocess.PIPE,
-    	stderr=subprocess.PIPE
+        ['dumpe2fs', fs],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
     )
     stdout, stderr = process.communicate()
 
@@ -87,9 +87,9 @@ def get_super(fs):
 # get infos about block groups
 def get_block_groups(fs):
     process = subprocess.Popen(
-    	['dumpe2fs', '-g', fs],
-    	stdout=subprocess.PIPE,
-    	stderr=subprocess.PIPE
+        ['dumpe2fs', '-g', fs],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
     )
     stdout, stderr = process.communicate()
 
