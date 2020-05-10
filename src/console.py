@@ -27,7 +27,8 @@ def recover(args):
         fs=args.input,
         snapshot_file=args.snapshot,
         file_path=args.file_path,
-        output_file=output_file
+        output_file=output_file,
+        verify_checksum=not args.force
     )
 
 """
@@ -56,6 +57,7 @@ def start():
     parser_recover.add_argument('-s', '--snapshot', type=str, help='metadata snapshot generated using "create"', required=True)
     parser_recover.add_argument('file_path', type=str, help='absolute path of wanted file inside of supplied file system')
     parser_recover.add_argument('-o', '--output', type=str, help='output file, where will be recovered file saved', required=False)
+    parser_recover.add_argument('-f', '--force', action='store_true', help='recover even if data blocks of file have been already allocated and file might be corrupted', required=False)
     parser_recover.set_defaults(func=recover)
 
     # parse argument lists

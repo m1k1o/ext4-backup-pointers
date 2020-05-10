@@ -12,13 +12,13 @@ Sometimes you only want to restore one file, not restore all filesystem metadata
 ## What does it do?
 * This software creates snapshot of filesystem, containing only physical addresses of file fragments along with absolute path of file.
 * Using its path, file can be recovered using saved metadata snapshot. Even if it was deleted in original filesystem.
+* At restoration it checks data block of recovered file against current data block bitmap to see whether file can be restored successfully. If those data blocks have been already allocated, they have been most likely overwritten, and integrity of restored file cannot be guaranteed. This check is optional.
 
 ## What does it **NOT** do?
 * This software is not intended to backup whole filesystems metadata and restore it, but only to get one file from before created backup.
 * This software cannot recover deleted file if metadata snapshot of filesystem was not created before deletion, and intended file is not in backup snapshot.
 * This software cannot recover files deleted using any other software, that ensures all data blocks are cleared.
 * This software cannot recover any other filetype than **S_IFREG (Regular file)** e.g. symlinks.
-* File restoration can fail, if data blocks used by previously file have been allocated to another file. In this version, there is in fact no way of knowing, whether file was restored successfully, or some blocks have been overwritten. In following versions there might be implemented checksum mechanism.
 
 ## How does it work?
 First step is to create snapshot, then recover file from this snapshot.
@@ -27,7 +27,7 @@ First step is to create snapshot, then recover file from this snapshot.
 It reads plain filesystem image and gets all used inodes. Then it attempts to gain all data blocks addressed by inode, as if it were trying to read that file. All those pointers along with *inode id* and *file size* are being saved. It traverses whole directory structure from root until given depth and saves absolute file addresses along with *inode id*. Both structures are considered as snapshots.
 
 ### Recovering file
-In snapshot it finds corresponding *inode id* and then saved data fragments with file size. It reads all fragments from original filesystem to new file.
+In snapshot it finds corresponding *inode id* and then saved data fragments with file size. It reads all fragments from original filesystem to new file. If checksum is active, it checks whether file has been removed an whether its data blocks have not been allocated by filesystem.
 
 ## Install
 You can install this module and use it as command line tool.
@@ -75,7 +75,8 @@ recover_file(
 	fs="data_fs.img",             # Filesystem image file
 	snapshot_file="snapshot.out", # Snapshot metadata file path generated from previous function
 	file_path="/my_file.jpg",     # File to be recovered, absolute path
-	output_file="my_file.jpg"     # File, where will be recovered data written
+	output_file="my_file.jpg",    # File, where will be recovered data written
+	verify_checksum=True          # Check, whether all file blocks have not been allocated by fs
 )
 ```
 

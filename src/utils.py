@@ -580,6 +580,94 @@ def readdir_from_chunks(fs, sb, chunks, size=None):
     return entries
 
 #
+# CHECKSUM
+#
+
+# get ranges of blocks used, from bbitmap
+def get_used_blocks(fs, sb):
+    # get used blocks from bbitmap
+    bgs = get_block_groups(fs)
+    used_blocks = []
+    for bg in bgs:
+        # only initialized blocks
+        if 'BLOCK_UNINIT' in sb['Blocks flags'][bg['group']]:
+            continue
+
+        # get & parse bitmap
+        bitmap = read_blocks(fs, sb['Block size'], bg['bbitmap'])
+        indexes = parse_bitmap(bitmap, sb['Blocks per group'])
+
+        # loop through used blocks in this bg
+        for index in indexes:
+            # block ID
+            block_index = index + (sb['Blocks per group'] * bg['group']) + 1
+            used_blocks.append(block_index)
+
+            # physical block addess
+            #block_addr = (index * sb['Block size']) + bg['block']
+
+    return join_ranges(used_blocks)
+
+# get chunks, that are still used whithin fs
+def get_conflicting_chunks(fs, sb, chunks):
+    # get used blocks from bbitmap
+    used_blocks = get_used_blocks(fs, sb)
+
+    conflicting = []
+    for chunk in chunks:
+        # get blocks from physical address
+        file_l = chunk["addr"] // sb["Block size"]
+        file_r = file_l + (chunk["len"] // sb["Block size"])
+
+        for used_block in used_blocks:
+            used_l = used_block['first']
+            used_r = used_l + used_block['total']
+
+            # chceck whether is range on the left or on the right
+            is_left = file_l < used_l and file_r < used_l
+            is_right = file_l > used_r and file_r > used_r
+
+            # check whether overlapping
+            if not (is_left or is_right):
+
+                # check wherher range starts or ends here
+                starts_here = file_l >= used_l and file_l <= used_r
+                ends_here = file_r <= used_r and used_r >= used_l
+
+                # if is whithin range, put whole file as conflicting
+                if starts_here and ends_here:
+                    conflicting.append([file_l, file_r])
+
+                # if starts here but ends somewhere else, put only start of file and end of used
+                elif starts_here:
+                    conflicting.append([file_l, used_r])
+
+                # if ends here but starts somewhere else, put only start of used and end of file
+                elif ends_here:
+                    conflicting.append([used_l, file_r])
+
+    # create chunks from plain blocks array
+    return [{
+        'addr': i[0] * sb['Block size'],
+        'len': i[1] * sb['Block size']
+    } for i in conflicting]
+
+# check whether inode is deleted, from ibitmap
+def is_inode_deleted(fs, sb, inode_id):
+    bg_index = (inode_id - 1) // sb['Inodes per group']
+    bitmap_index = (inode_id - 1) % sb['Inodes per group']
+
+    # get used blocks from bbitmap
+    bgs = get_block_groups(fs)
+    block_group = bgs[bg_index]
+
+    if 'INODE_UNINIT' in sb['Blocks flags'][block_group['group']]:
+        return True
+
+    bitmap = read_blocks(fs, sb['Block size'], block_group['ibitmap'])
+    return access_bit(bitmap, bitmap_index) == 0
+
+#
 # SNAPSHOT
 #
 
@@ -662,13 +750,24 @@ def generate_snapshot(fs, snapshot_file, dirs_max_depth=100):
     })
 
 # recover file from fs using supplied metdata
-def recover_file(fs, snapshot_file, file_path, output_file):
+def recover_file(fs, snapshot_file, file_path, output_file, verify_checksum=True):
     snapshot = load_snapshot(snapshot_file)
 
     if file_path not in snapshot['dirs']:
         raise Exception('File was not found.')
-    
+
     inode_id = snapshot['dirs'][file_path]
     assert inode_id in snapshot['inodes']
     size, chunks = snapshot['inodes'][inode_id]
+
+    # check, whether file can be recovered
+    if verify_checksum:
+        sb = get_super(fs)
+        if not is_inode_deleted(fs, sb, inode_id):
+            raise Exception('File is not deleted.')
+
+        conflicting = get_conflicting_chunks(fs, sb, chunks)
+        if len(conflicting) > 0:
+            raise Exception('File cannot be fully recovered. Some of its blocks are alreay in use.')
+
     get_file_from_chunks(fs, chunks, output_file, size)
