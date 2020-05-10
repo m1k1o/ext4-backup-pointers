@@ -623,9 +623,10 @@ def get_conflicting_chunks(fs, sb, chunks):
             used_l = used_block['first']
             used_r = used_l + used_block['total']
 
-            # chceck whether is range on the left or on the right
-            is_left = file_l < used_l and file_r < used_l
-            is_right = file_l > used_r and file_r > used_r
+            # check whether is range on the left or on the right
+            # left is inclusive and right is exclusive, so therefore <= and >= where they meet
+            is_left = file_l < used_l and file_r <= used_l
+            is_right = file_l >= used_r and file_r > used_r
 
             # check whether overlapping
             if not (is_left or is_right):
