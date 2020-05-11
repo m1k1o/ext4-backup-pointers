@@ -95,7 +95,7 @@ umount data_fs
 rmdir data_fs
 
 # detach loop device
-losetup -d /dev/loop1
+losetup -d "$LOOP"
 
 # remove fs image & others
 rm -f data_fs.img snapshot.out recovered_file
