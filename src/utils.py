@@ -71,7 +71,7 @@ def get_super(fs):
     # split
     data['Filesystem features'] = data['Filesystem features'].split(' ')
 
-    data['Blocks flags'] = []
+    data['Blocks Groups Flags'] = []
     rows = blocks.strip().split('\n')
     for row in rows:
         # must start with group
@@ -80,9 +80,13 @@ def get_super(fs):
             continue
 
         flags = match.group(1).split(", ")
-        data['Blocks flags'].append(flags)
+        data['Blocks Groups Flags'].append(flags)
 
     return data
+
+# test if is flag in block group
+def test_block_groups_flag(sb, flag_name, group_index):
+    return group_index in sb['Blocks Groups Flags'] and flag_name in sb['Blocks Groups Flags'][group_index]
 
 # get infos about block groups
 def get_block_groups(fs):
@@ -153,7 +157,7 @@ def get_inodes_addresses(fs, sb=None):
     inodes = {}
     for bg in bgs:
         # only initialized inodes
-        if 'INODE_UNINIT' in sb['Blocks flags'][bg['group']]:
+        if test_block_groups_flag(sb, 'INODE_UNINIT', bg['group']):
             continue
 
         # get & parse bitmap
@@ -590,7 +594,7 @@ def get_used_blocks(fs, sb):
     used_blocks = []
     for bg in bgs:
         # only initialized blocks
-        if 'BLOCK_UNINIT' in sb['Blocks flags'][bg['group']]:
+        if test_block_groups_flag(sb, 'BLOCK_UNINIT', bg['group']):
             continue
 
         # get & parse bitmap
@@ -679,12 +683,12 @@ def is_inode_deleted(fs, sb, inode_id):
 
     # get used blocks from bbitmap
     bgs = get_block_groups(fs)
-    block_group = bgs[bg_index]
+    bg = bgs[bg_index]
 
-    if 'INODE_UNINIT' in sb['Blocks flags'][block_group['group']]:
+    if test_block_groups_flag(sb, 'INODE_UNINIT', bg['group']):
         return True
 
-    bitmap = read_blocks(fs, sb['Block size'], block_group['ibitmap'])
+    bitmap = read_blocks(fs, sb['Block size'], bg['ibitmap'])
     return access_bit(bitmap, bitmap_index) == 0
 
 # check if given inodes have been deleted; return list of inodes, that have been deleted
@@ -694,7 +698,7 @@ def check_if_deleted_inodes(fs, sb, inode_ids):
     available_inode_ids = list(inode_ids)
     for bg in bgs:
         # only initialized inodes
-        if 'INODE_UNINIT' in sb['Blocks flags'][bg['group']]:
+        if test_block_groups_flag(sb, 'INODE_UNINIT', bg['group']):
             continue
 
         # get & parse bitmap
