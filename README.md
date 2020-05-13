@@ -77,7 +77,8 @@ OK   1558173      /my_file.jpg
 
 ### Source code
 Example of code usage can be found in Jupyter Notebook file `example.ipynb`.
-```
+
+```python
 from src.utils import generate_snapshot, recover_file
 generate_snapshot(
 	fs="data_fs.img",             # Filesystem image file
@@ -95,6 +96,27 @@ list_deleted(
 	fs="data_fs.img",             # Filesystem image file
 	snapshot_file="snapshot.out"  # Snapshot metadata file path
 )
+```
+
+### Testing
+For testing please see file `test.sh`. EXT- filesystems are backwards complatible, so this program will work in EXT2/3 filesystem as well. This can be tested using automatic testing tool, that will create custom file system and populate it with testing files.
+
+```
+-- use it like this --
+
+./test.sh setup [ext4]   # setup test filesystem. (run as root)
+                         # - optional: (ext2, ext3, ext4)
+./test.sh run            # run rests.
+./test.sh clear          # clear test filesystem. (run as root)
+./test.sh full           # create & test & clear. (run as root)
+
+-- or run test steps individualy --
+
+./test.sh install        # python install src.
+./test.sh create_file    # create test file.
+./test.sh snapshot       # create snapshot.
+./test.sh remove_file    # remove test file.
+./test.sh restore        # restore removed file from snapshot.
 ```
 
 ## Requirements

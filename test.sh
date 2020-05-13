@@ -32,11 +32,20 @@ install() {
 # FILESYSTEM CREATE
 #
 fs_create() {
+	FS="$1"
+
 	dd if=/dev/zero of=data_fs.img.test bs=1M count=250
 	CATCH "[OK] Created empty file."
 
-	mkfs.ext4 data_fs.img.test
-	CATCH "[OK] Created ext4 filesystem."
+	if [ -z "$FS" ]
+		$FS="ext4"
+	elif ! [[ $FS =~ ^ext[2-4]$ ]]; then
+		echo "Unknown filesystem $FS. Only ext2, ext3, ext4 are supported."
+		exit
+	fi
+
+	eval "mkfs.$FS data_fs.img.test"
+	CATCH "[OK] Created $FS filesystem."
 }
 
 #
@@ -91,7 +100,7 @@ fs_down() {
 	CATCH "[OK] Removed filesystem image."
 
 	# clear state
-	rm loop.txt.test md5.txt.test
+	rm -f loop.txt.test md5.txt.test
 }
 
 #
@@ -99,8 +108,8 @@ fs_down() {
 #
 create_file() {
 	# remove pad files if existed
-	rm data_fs/pad_file_*
-	rm -r data_fs/test
+	rm -f data_fs/pad_file_*
+	rm -rf data_fs/test
 
 	# add 15 random files
 	i="0"
@@ -113,7 +122,7 @@ create_file() {
 	# remove every second file
 	i="0"
 	while [ $i -lt 15 ]; do
-		rm "data_fs/pad_file_$i"
+		rm -f "data_fs/pad_file_$i"
 		CATCH "[OK] Removed file: pad_file_$i"
 		i=$[$i+2]
 	done
@@ -142,7 +151,7 @@ create_file() {
 #
 remove_file() {
 	# remove
-	rm -r data_fs/test
+	rm -rf data_fs/test
 	CATCH "[OK] Recursively removed test folder."
 
 	# sync fs
@@ -191,7 +200,7 @@ case $1 in
 	full)
 		install
 		if ! [ -f "loop.txt.test" ]; then
-			fs_create
+			fs_create "$2"
 			fs_up
 		elif ! losetup "$LOOP"; then
 			echo "Filesystem is already created, mountig..."
@@ -221,7 +230,7 @@ case $1 in
 
 	setup)
 		if ! [ -f "loop.txt.test" ]; then
-			fs_create
+			fs_create "$2"
 			fs_up
 		elif ! losetup "$LOOP"; then
 			echo "Filesystem is already created, mountig..."
@@ -242,10 +251,12 @@ case $1 in
 	*)
 		echo '-- use it like this --'
 		echo ''
-		echo './test.sh setup          # setup test filesystem. (run as root)'
+		echo './test.sh setup [ext4]   # setup test filesystem. (run as root)'
+		echo '                         # - optional: (ext2, ext3, ext4)'
 		echo './test.sh run            # run rests.'
 		echo './test.sh clear          # clear test filesystem. (run as root)'
-		echo './test.sh full           # create & test & clear. (run as root)'
+		echo './test.sh full [ext4]    # create & test & clear. (run as root)'
+		echo '                         # - optional: (ext2, ext3, ext4)'
 		echo ''
 		echo '-- or run test steps individualy --'
 		echo ''
