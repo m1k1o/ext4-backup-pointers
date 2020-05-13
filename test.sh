@@ -37,7 +37,7 @@ fs_create() {
 	dd if=/dev/zero of=data_fs.img.test bs=1M count=250
 	CATCH "[OK] Created empty file."
 
-	if [ -z "$FS" ]
+	if [ -z "$FS" ]; then
 		$FS="ext4"
 	elif ! [[ $FS =~ ^ext[2-4]$ ]]; then
 		echo "Unknown filesystem $FS. Only ext2, ext3, ext4 are supported."
