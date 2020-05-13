@@ -3,7 +3,7 @@ cd "$(dirname "$0")"
 
 # load state - loop device
 if [ -f "loop.txt.test" ]; then
-    LOOP="$(cat loop.txt.test)"
+	LOOP="$(cat loop.txt.test)"
 fi
 
 # load state - original md5
@@ -29,6 +29,17 @@ install() {
 }
 
 #
+# FILESYSTEM CREATE
+#
+fs_create() {
+	dd if=/dev/zero of=data_fs.img.test bs=1M count=250
+	CATCH "[OK] Created empty file."
+
+	mkfs.ext4 data_fs.img.test
+	CATCH "[OK] Created ext4 filesystem."
+}
+
+#
 # FILESYSTEM UP
 #
 fs_up() {
@@ -38,19 +49,13 @@ fs_up() {
 		exit
 	fi
 
-	mkdir data_fs
-	CATCH "[OK] Created directory data_fs."
-
-	dd if=/dev/zero of=data_fs.img.test bs=1M count=250
-	CATCH "[OK] Created empty file."
-
-	mkfs.ext4 data_fs.img.test
-	CATCH "[OK] Created ext4 filesystem."
-
 	# Create block device (/dev/loop0).
 	# losetup -a
 	LOOP="$(losetup -fP --show data_fs.img.test)"
 	CATCH "[OK] Created block device: $LOOP"
+
+	mkdir data_fs
+	CATCH "[OK] Created directory data_fs."
 
 	mount "$LOOP" data_fs
 	CATCH "[OK] Mounted $LOOP to data_fs."
@@ -175,8 +180,6 @@ restore() {
 
 case $1 in
 	install) install;;
-	fs_up) fs_up;;
-	fs_down) fs_down;;
 	create_file) create_file;;
 	remove_file) remove_file;;
 	snapshot) snapshot;;
@@ -184,7 +187,13 @@ case $1 in
 
 	full)
 		install
-		fs_up
+		if ! [ -f "loop.txt.test" ]; then
+			fs_create
+			fs_up
+		elif ! losetup "$LOOP"; then
+			echo "Filesystem is already created, mountig..."
+			fs_up
+		fi
 		create_file
 		snapshot
 		remove_file
@@ -193,14 +202,30 @@ case $1 in
 		;;
 
 	run)
-		install
 		if ! [ -f "loop.txt.test" ]; then
-			fs_up
+			echo "Filesystem must be created first..."
+			exit
+		elif ! losetup "$LOOP"; then
+			echo "Filesystem is created, but loop device is not up..."
+			exit
 		fi
+		install
 		create_file
 		snapshot
 		remove_file
 		restore
+		;;
+
+	setup)
+		if ! [ -f "loop.txt.test" ]; then
+			fs_create
+			fs_up
+		elif ! losetup "$LOOP"; then
+			echo "Filesystem is already created, mountig..."
+			fs_up
+		else
+			echo "Filesystem is already created and mounted..."
+		fi
 		;;
 
 	clear)
@@ -210,7 +235,22 @@ case $1 in
 			echo "Nothing to clear..."
 		fi
 		;;
+
 	*)
-		echo "Unknown..."
+		echo '-- use it like this --'
+		echo ''
+		echo './test.sh setup          # setup test filesystem. (run as root)'
+		echo './test.sh run            # run rests.'
+		echo './test.sh clear          # clear test filesystem. (run as root)'
+		echo './test.sh full           # create & test & clear. (run as root)'
+		echo ''
+		echo '-- or run test steps individualy --'
+		echo ''
+		echo './test.sh install        # python install src.'
+		echo './test.sh create_file    # create test file.'
+		echo './test.sh snapshot       # create snapshot.'
+		echo './test.sh remove_file    # remove test file.'
+		echo './test.sh restore        # restore removed file from snapshot.'
+		echo ''
 		;;
 esac
