@@ -15,7 +15,7 @@ fi
 CATCH() {
 	if ! [ $? -eq 0 ]
 	then
-		exit
+		exit 1
 	fi
 
 	echo $1
@@ -46,7 +46,7 @@ fs_up() {
 	if [ "$EUID" -ne 0 ]
 	then
 		echo "Please run as root"
-		exit
+		exit 1
 	fi
 
 	# Create block device (/dev/loop0).
@@ -73,7 +73,7 @@ fs_down() {
 	if [ "$EUID" -ne 0 ]
 	then
 		echo "Please run as root"
-		exit
+		exit 1
 	fi
 
 	umount data_fs
@@ -166,16 +166,19 @@ restore() {
 	CATCH "[OK] Recovered test file."
 
 	MD5_RECOVERED=$(md5sum "recovered_file" | cut -d " " -f1)
+
+	# remove fs image & others
+	rm -f recovered_file
+
 	response="Original:  $MD5_ORIGINAL\nRecovered: $MD5_RECOVERED"
 	if [[ $MD5_ORIGINAL == $MD5_RECOVERED ]]
 	then
 		echo -e "\n\e[92mSUCCESS\e[39m\n$response"
+		exit 0
 	else
 		echo -e "\n\e[91mFAILURE\e[39m\n$response"
+		exit 1
 	fi
-
-	# remove fs image & others
-	rm -f recovered_file
 }
 
 case $1 in
@@ -204,10 +207,10 @@ case $1 in
 	run)
 		if ! [ -f "loop.txt.test" ]; then
 			echo "Filesystem must be created first..."
-			exit
+			exit 1
 		elif ! losetup "$LOOP"; then
 			echo "Filesystem is created, but loop device is not up..."
-			exit
+			exit 1
 		fi
 		install
 		create_file
