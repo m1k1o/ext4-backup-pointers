@@ -108,7 +108,8 @@ For testing please see file `test.sh`. EXT- filesystems are backwards complatibl
                          # - optional: (ext2, ext3, ext4)
 ./test.sh run            # run rests.
 ./test.sh clear          # clear test filesystem. (run as root)
-./test.sh full           # create & test & clear. (run as root)
+./test.sh full [ext4]    # create & test & clear. (run as root)
+                         # - optional: (ext2, ext3, ext4)
 
 -- or run test steps individualy --
 
