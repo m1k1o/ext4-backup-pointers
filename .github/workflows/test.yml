@@ -17,7 +17,7 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.7.7
-    - name: Install xmllint
+    - name: Install e2fsprogs
       run: sudo apt-get install e2fsprogs
     - name: Setup filesystem
       run: sudo ./test.sh setup
