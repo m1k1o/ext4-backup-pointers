@@ -1,6 +1,7 @@
 import argparse
 import textwrap
 import os
+import sys
 
 from src.utils import generate_snapshot, recover_file, list_deleted
 
@@ -96,10 +97,12 @@ def start():
 
     # run function
     try:
-    	args.func(args)
+        args.func(args)
+        sys.exit(0)
     except AttributeError:
         parser.print_help()
         parser.exit()
     except Exception as e:
         print("*** ERROR! ***")
         print(e)
+        sys.exit(1)
