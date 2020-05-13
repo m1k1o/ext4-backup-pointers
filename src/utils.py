@@ -392,7 +392,7 @@ def parse_indirect_blocks_chunks(fs, sb, inode_data):
     assert len(inode_data) == 60
 
     # pointers 0 - 11: direct to data
-    data_blocks = unpack_pointers(fs, inode_data[0:11*4])
+    data_blocks = unpack_pointers(fs, inode_data[0:12*4])
 
     # pointer [12] to pointer array
     pointer = struct.unpack('<I', inode_data[48:52])[0]
