@@ -148,34 +148,6 @@ def parse_bitmap(data, total_items=None):
 
     return indexes
 
-# [ 'inode_id': 'physical_addr', ... ]
-def get_inodes_addresses(fs, sb=None):
-    # get blocks
-    bgs = get_block_groups(fs)
-
-    # get inodes with their physical address
-    inodes = {}
-    for bg in bgs:
-        # only initialized inodes
-        if test_block_groups_flag(sb, 'INODE_UNINIT', bg['group']):
-            continue
-
-        # get & parse bitmap
-        bitmap = read_blocks(fs, sb['Block size'], bg['ibitmap'])
-        indexes = parse_bitmap(bitmap, sb['Inodes per group'])
-
-        # get base address for inode table in this bg
-        base_address = bg['itable'] * sb['Block size']
-
-        # loop through used inodes in this bg
-        for index in indexes:
-            inode_id = index + (sb['Inodes per group'] * bg['group']) + 1
-            raw_address = (index * sb['Inode size']) + base_address
-
-            inodes[inode_id] = raw_address
-
-    return inodes
-
 #
 # INODE
 #
@@ -252,6 +224,23 @@ def inode_parse(data):
         'data': i_block,
         'size': join_int32(i_size_high, i_size_lo)
     }
+
+# get inode by inode id
+def get_inode_by_inode_id(fs, sb, inode_id):
+    # get blocks
+    bgs = get_block_groups(fs)
+
+    # get bg where inode is
+    bg_index = (inode_id - 1) // sb['Inodes per group']
+    bg = bgs[bg_index]
+
+    # get offet and addr in itable
+    index = (inode_id - 1) % sb['Inodes per group']
+    inode_addr = (index * sb['Inode size']) + bg['itable'] * sb['Block size']
+
+    # get and parse inode data
+    inode_data = read_blocks(fs, 1, inode_addr, sb['Inode size'])
+    return inode_parse(inode_data)
 
 #
 # EXTENT TREE STRUCTS
@@ -583,6 +572,43 @@ def readdir_from_chunks(fs, sb, chunks, size=None):
     fh.close()
     return entries
 
+# read dir by inode_id
+def readdir(fs, sb, inode_id):
+    inode = get_inode_by_inode_id(fs, sb, inode_id)
+
+    # read all chunks and get dir list
+    size, chunks = inode_to_chunks(fs, sb, inode)
+    dir_list = readdir_from_chunks(fs, sb, chunks, size)
+
+    return dir_list
+
+# get inode id of given path
+def get_inode_id_of_path(fs, sb, dir_path):
+    # split dir to names
+    names = dir_path.split("/")
+    # remove empty strings
+    names = [x for x in names if x]
+
+    inode_id = 2
+    for name in names:
+        entries = readdir(fs, sb, inode_id)
+
+        # find name in entries
+        found_entry = None
+        for entry in entries:
+            if entry['name'] == name:
+                found_entry = entry
+                break
+
+        if found_entry is None:
+            raise Exception('Directory `' + name + '` was not found.')
+
+        # ext3 compatibility
+        assert entry['filetype'] is None or entry['filetype'] == 'S_IFDIR'
+        inode_id = entry['inode']
+
+    return inode_id
+
 #
 # CHECKSUM
 #
@@ -734,31 +760,21 @@ def load_snapshot(file_path):
     return snapshot
 
 # generate snapshot from fs
-def generate_snapshot(fs, snapshot_file, dirs_max_depth=100):
+def generate_snapshot(fs, snapshot_file, dirs_max_depth=100, root_path='/'):
     sb = get_super(fs)
-    inodes = get_inodes_addresses(fs, sb)
 
+    # normalize root path
+    if root_path != '/'
+        if not root_path.endswith('/'):
+            root_path += '/'
+        if not root_path.startswith('/'):
+            root_path = '/' + root_path
+
+    # start indexing from root inode
+    root_inode = get_inode_id_of_path(fs, sb, root_path):
+    inodes = [ { 'prefix': root_path, 'inode': root_inode } ]
+    dir_entries = {}
     files_chunks = {}
-    dirs_chunks = {}
-    for inode_id, inode_addr in inodes.items():
-        inode_data = read_blocks(fs, 1, inode_addr, sb['Inode size'])
-        inode = inode_parse(inode_data)
-
-        # only regular files
-        if inode['filetype'] == 'S_IFREG' and inode_id > 11:
-            size, chunks = inode_to_chunks(fs, sb, inode)
-            files_chunks[inode_id] = size, chunks
-            continue
-
-        # save directories
-        if inode['filetype'] == 'S_IFDIR':
-            size, chunks = inode_to_chunks(fs, sb, inode)
-            dirs_chunks[inode_id] = size, chunks
-            continue
-
-    # root inode is 2
-    inodes = [ { 'prefix': '/', 'inode': 2 } ]
-    entries = {}
 
     # loop through dirs
     for depth in range(dirs_max_depth):
@@ -768,22 +784,29 @@ def generate_snapshot(fs, snapshot_file, dirs_max_depth=100):
         last_inodes, inodes = inodes, []
         for entry in last_inodes:
             prefix = entry['prefix']
-            inode = entry['inode']
+            inode_id = entry['inode']
 
-            if not inode in dirs_chunks:
-                continue
+            # get inode
+            inode = get_inode_by_inode_id(fs, sb, inode_id)
 
-            # pop from dict
-            size, chunks = dirs_chunks[inode]
-            del dirs_chunks[inode]
+            # we are looping only through direcotories
+            assert inode['filetype'] == 'S_IFDIR'
 
+            # get chunks
+            size, chunks = inode_to_chunks(fs, sb, inode)
             for entry in readdir_from_chunks(fs, sb, chunks, size):
                 if entry['name'] == '.' or entry['name'] == '..':
                     continue
 
                 # only regular files
                 if entry['filetype'] == 'S_IFREG':
-                    entries[prefix + entry['name']] = entry['inode']
+                    # save dir entry
+                    dir_entries[prefix + entry['name']] = entry['inode']
+
+                    # save files chunks
+                    inode = get_inode_by_inode_id(fs, sb, entry['inode'])
+                    size, chunks = inode_to_chunks(fs, sb, inode)
+                    files_chunks[entry['inode']] = size, chunks
                     continue
 
                 # add dir to next iteration
@@ -794,7 +817,7 @@ def generate_snapshot(fs, snapshot_file, dirs_max_depth=100):
                     })
 
     save_snapshot(snapshot_file, {
-        'dirs': entries,
+        'dirs': dir_entries,
         'inodes': files_chunks
     })
 
