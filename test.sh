@@ -230,7 +230,7 @@ case $1 in
 		fi
 		install
 		create_file
-		snapshot "$1"
+		snapshot "$2"
 		remove_file
 		restore
 		;;
