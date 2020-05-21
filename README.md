@@ -53,7 +53,7 @@ optional arguments:
 ```
 
 ## Example
-**Create snapshot.** It creates snapshot of filesystem image `data_fs.img` and saves to `data_fs.img.snapshot.out` (if not otherwise specified, using `-o`).
+**Create snapshot.** It creates snapshot of filesystem image `data_fs.img` and saves to `data_fs.img.snapshot.out` (if not otherwise specified, using `-o`). You can specify your own root directory, using `-root /custom`.
 
 ```
 $ ext4-backup-pointers create -i data_fs.img
@@ -83,7 +83,8 @@ from src.utils import generate_snapshot, recover_file
 generate_snapshot(
 	fs="data_fs.img",             # Filesystem image file
 	snapshot_file="snapshot.out", # Path, where will be snapshot metadata file created
-	dirs_max_depth=100            # Max directory traversal depth
+	root_path="/",                # Root directory of backup
+	dirs_max_depth=100            # Max directory traversal depth from root
 )
 recover_file(
 	fs="data_fs.img",             # Filesystem image file

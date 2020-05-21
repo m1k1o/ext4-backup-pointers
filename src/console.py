@@ -15,6 +15,7 @@ def create(args):
     snapshot = generate_snapshot(
         fs=args.input,
         snapshot_file=snapshot_file,
+        root_path=args.root_path,
         dirs_max_depth=args.dirs_max_depth
     )
 
@@ -65,6 +66,7 @@ def start():
     parser_create = subparsers.add_parser('create', help='create metadata snapshot')
     parser_create.add_argument('-i', '--input', type=str, help='image of file system', required=True)
     parser_create.add_argument('-o', '--output', type=str, help='metadata snapshot output file', required=False)
+    parser_create.add_argument('-root', '--root-path', type=str, help='root directory of backup', required=False, default='/')
     parser_create.add_argument('-depth', '--dirs-max-depth', type=int, help='maximum depth of directory traversal', required=False, default=100)
     parser_create.set_defaults(func=create) 
 
