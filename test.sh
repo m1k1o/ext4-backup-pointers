@@ -163,8 +163,15 @@ remove_file() {
 # CREATE SNAPSHOT
 #
 snapshot() {
-	ext4-backup-pointers create -i data_fs.img.test -o snapshot.out.test
-	CATCH "[OK] Created snapshot."
+	# set custom root
+	if [ -z "$1" ]; then
+		ROOT="/"
+	else
+		ROOT="$1"
+	fi
+
+	ext4-backup-pointers create -i data_fs.img.test -o snapshot.out.test -root "$ROOT"
+	CATCH "[OK] Created snapshot with root: $ROOT"
 }
 
 #
@@ -223,7 +230,7 @@ case $1 in
 		fi
 		install
 		create_file
-		snapshot
+		snapshot "$1"
 		remove_file
 		restore
 		;;
@@ -253,7 +260,7 @@ case $1 in
 		echo ''
 		echo './test.sh setup [ext4]   # setup test filesystem. (run as root)'
 		echo '                         # - optional: (ext2, ext3, ext4)'
-		echo './test.sh run            # run rests.'
+		echo './test.sh run [/]        # run rests with FS root path.'
 		echo './test.sh clear          # clear test filesystem. (run as root)'
 		echo './test.sh full [ext4]    # create & test & clear. (run as root)'
 		echo '                         # - optional: (ext2, ext3, ext4)'
@@ -262,7 +269,7 @@ case $1 in
 		echo ''
 		echo './test.sh install        # python install src.'
 		echo './test.sh create_file    # create test file.'
-		echo './test.sh snapshot       # create snapshot.'
+		echo './test.sh snapshot [/]   # create snapshot, specify FS root path.'
 		echo './test.sh remove_file    # remove test file.'
 		echo './test.sh restore        # restore removed file from snapshot.'
 		echo ''

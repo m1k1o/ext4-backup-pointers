@@ -1,0 +1,66 @@
+name: Test with custom root
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  ext2:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7.7
+    - name: Install e2fsprogs
+      run: sudo apt-get install e2fsprogs
+    - name: Setup filesystem
+      run: sudo ./test.sh setup ext2
+    - name: Test
+      run: ./test.sh run /test/dir/
+    - name: Clear filesystem
+      run: sudo ./test.sh clear
+
+  ext3:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7.7
+    - name: Install e2fsprogs
+      run: sudo apt-get install e2fsprogs
+    - name: Setup filesystem
+      run: sudo ./test.sh setup ext3
+    - name: Test
+      run: ./test.sh run /test/dir/
+    - name: Clear filesystem
+      run: sudo ./test.sh clear
+
+  ext4:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7.7
+    - name: Install e2fsprogs
+      run: sudo apt-get install e2fsprogs
+    - name: Setup filesystem
+      run: sudo ./test.sh setup ext4
+    - name: Test
+      run: ./test.sh run /test/dir/
+    - name: Clear filesystem
+      run: sudo ./test.sh clear
