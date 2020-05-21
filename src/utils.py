@@ -764,14 +764,14 @@ def generate_snapshot(fs, snapshot_file, dirs_max_depth=100, root_path='/'):
     sb = get_super(fs)
 
     # normalize root path
-    if root_path != '/'
+    if root_path != '/':
         if not root_path.endswith('/'):
             root_path += '/'
         if not root_path.startswith('/'):
             root_path = '/' + root_path
 
     # start indexing from root inode
-    root_inode = get_inode_id_of_path(fs, sb, root_path):
+    root_inode = get_inode_id_of_path(fs, sb, root_path)
     inodes = [ { 'prefix': root_path, 'inode': root_inode } ]
     dir_entries = {}
     files_chunks = {}
